@@ -1,6 +1,9 @@
 const COLORS = ['red', 'blue', 'green'];
-const MAX_SHAPES = 128;
-const SPAWN_INTERVAL = 3000; // 3 seconds
+const urlParams = new URLSearchParams(window.location.search);
+const paramL = parseInt(urlParams.get('l'));
+const MAX_SHAPES = isNaN(paramL) ? 128 : paramL;
+const paramT = parseInt(urlParams.get('t'));
+const SPAWN_INTERVAL = isNaN(paramT) ? 3000 : paramT;
 const CONTAINER = document.getElementById('game-container');
 
 class Shape {
