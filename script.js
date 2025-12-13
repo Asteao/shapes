@@ -78,6 +78,7 @@ class Game {
     constructor() {
         this.shapes = [];
         this.draggedShape = null;
+        this.dragPointerId = null;
         this.dragOffset = { x: 0, y: 0 };
 
         // Load saved state
@@ -131,6 +132,9 @@ class Game {
     }
 
     onPointerDown(e) {
+        // Ignore if already dragging
+        if (this.draggedShape) return;
+
         const target = e.target.closest('.shape');
         if (!target) return;
 
@@ -138,6 +142,7 @@ class Game {
         this.draggedShape = this.shapes.find(s => s.id === id);
 
         if (this.draggedShape) {
+            this.dragPointerId = e.pointerId;
             // Calculate offset to prevent snapping to center
             const rect = target.getBoundingClientRect();
             this.dragOffset.x = e.clientX - rect.left;
@@ -153,6 +158,7 @@ class Game {
 
     onPointerMove(e) {
         if (!this.draggedShape) return;
+        if (e.pointerId !== this.dragPointerId) return;
 
         const x = e.clientX - this.dragOffset.x;
         const y = e.clientY - this.dragOffset.y;
@@ -162,6 +168,7 @@ class Game {
 
     onPointerUp(e) {
         if (!this.draggedShape) return;
+        if (e.pointerId !== this.dragPointerId) return;
 
         // Restore transition
         this.draggedShape.element.style.transition = '';
@@ -172,6 +179,7 @@ class Game {
         this.updateCounter(); // Update counter after potential merges
 
         this.draggedShape = null;
+        this.dragPointerId = null;
     }
 
     checkMerge(shape) {
