@@ -1,0 +1,234 @@
+:root {
+    --bg-color: #0f0c29;
+    --text-color: #ffffff;
+    --red: #FF4757;
+    --blue: #1E90FF;
+    --green: #2ED573;
+    --glass-bg: rgba(255, 255, 255, 0.1);
+    --glass-border: rgba(255, 255, 255, 0.2);
+    --shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+* {
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+body,
+html {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+
+    background: var(--bg-color);
+    background: linear-gradient(300deg, #0f0c29, #302b63, #24243e);
+    background-size: 180% 180%;
+    animation: gradient-animation 18s ease infinite;
+    color: var(--text-color);
+}
+
+@keyframes gradient-animation {
+    0% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+#game-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+h1 {
+    font-weight: 700;
+    margin: 0;
+    font-size: 2rem;
+    letter-spacing: -1px;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+.highlight {
+    background: linear-gradient(to right, var(--red), var(--blue));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+p {
+    margin: 5px 0 0;
+    opacity: 0.7;
+    font-weight: 300;
+}
+
+.shape {
+    position: absolute;
+    width: 80px;
+    height: 80px;
+    cursor: grab;
+    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease;
+    will-change: transform, left, top;
+
+    /* Center content */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    /* Glassmorphism base (the shape itself will be clipped, so background needs to be on an inner element or the element itself if clipped) 
+       If we clip the element, the box-shadow might be clipped too depending on implementation.
+       Using filter: drop-shadow() on the parent is better for clipped shapes.
+    */
+    filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.5));
+}
+
+.shape:active {
+    cursor: grabbing;
+    transform: scale(1.1);
+    z-index: 1000;
+}
+
+.shape-inner {
+    width: 100%;
+    height: 100%;
+    background: var(--glass-bg);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--glass-border);
+    /* The color tint */
+    position: relative;
+    overflow: hidden;
+}
+
+.shape-inner::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, 0.1) 100%);
+}
+
+.shape.red .shape-inner {
+    background: rgba(255, 71, 87, 0.6);
+    box-shadow: inset 0 0 20px rgba(255, 71, 87, 0.4);
+    border-color: rgba(255, 71, 87, 0.5);
+}
+
+.shape.blue .shape-inner {
+    background: rgba(30, 144, 255, 0.6);
+    box-shadow: inset 0 0 20px rgba(30, 144, 255, 0.4);
+    border-color: rgba(30, 144, 255, 0.5);
+}
+
+.shape.green .shape-inner {
+    background: rgba(46, 213, 115, 0.6);
+    box-shadow: inset 0 0 20px rgba(46, 213, 115, 0.4);
+    border-color: rgba(46, 213, 115, 0.5);
+}
+
+/* Merge Animation */
+@keyframes pop-in {
+    0% {
+        transform: scale(0);
+        opacity: 0;
+    }
+
+    60% {
+        transform: scale(1.2);
+        opacity: 1;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.spawn-anim {
+    animation: pop-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.merge-anim {
+    animation: pop-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+/* UI Layer */
+#ui-layer {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+#menu-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-color);
+    font-size: 2rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 10px;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+#menu-btn:hover {
+    opacity: 1;
+}
+
+#menu-dropdown {
+    margin-top: 10px;
+    background: rgba(15, 12, 41, 0.9);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 8px;
+    min-width: 120px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+
+    transform-origin: top right;
+    transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+}
+
+#menu-dropdown.hidden {
+    opacity: 0;
+    visibility: hidden;
+    transform: scale(0.95);
+    pointer-events: none;
+}
+
+#reset-btn {
+    display: block;
+    width: 100%;
+    padding: 10px 16px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-color);
+    font-size: 1rem;
+    text-align: left;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: background 0.2s;
+    font-family: inherit;
+}
+
+#reset-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
