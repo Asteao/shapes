@@ -86,6 +86,7 @@ class Game {
         CONTAINER.addEventListener('pointerdown', (e) => this.onPointerDown(e));
         window.addEventListener('pointermove', (e) => this.onPointerMove(e));
         window.addEventListener('pointerup', (e) => this.onPointerUp(e));
+        window.addEventListener('pointercancel', (e) => this.onPointerUp(e));
     }
 
     spawnRandomCircle() {
@@ -125,6 +126,9 @@ class Game {
 
             // Remove transitions during drag for responsiveness
             this.draggedShape.element.style.transition = 'none';
+
+            // Capture the pointer to ensure we receive all events even if cursor moves off element
+            target.setPointerCapture(e.pointerId);
         }
     }
 

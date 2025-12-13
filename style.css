@@ -85,6 +85,9 @@ p {
     justify-content: center;
     align-items: center;
 
+    /* Prevent default touch actions (scrolling) on the shape */
+    touch-action: none;
+
     /* Glassmorphism base (the shape itself will be clipped, so background needs to be on an inner element or the element itself if clipped) 
        If we clip the element, the box-shadow might be clipped too depending on implementation.
        Using filter: drop-shadow() on the parent is better for clipped shapes.
