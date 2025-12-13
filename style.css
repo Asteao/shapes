@@ -28,6 +28,7 @@ html {
     background-size: 180% 180%;
     animation: gradient-animation 18s ease infinite;
     color: var(--text-color);
+    font-family: 'Courier New', monospace;
 }
 
 @keyframes gradient-animation {
@@ -237,4 +238,21 @@ p {
 
 #reset-btn:hover {
     background: rgba(255, 255, 255, 0.1);
+}
+
+#shape-counter {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-color);
+    z-index: 2000;
+    pointer-events: none;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    transition: color 0.3s ease;
+}
+
+#shape-counter.limit-reached {
+    color: var(--red);
 }

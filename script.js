@@ -1,4 +1,5 @@
 const COLORS = ['red', 'blue', 'green'];
+const MAX_SHAPES = 128;
 const SPAWN_INTERVAL = 3000; // 3 seconds
 const CONTAINER = document.getElementById('game-container');
 
@@ -78,6 +79,7 @@ class Game {
 
         // Load saved state
         this.loadState();
+        this.updateCounter(); // Initial update after loading state
 
         // Start Loops
         setInterval(() => this.spawnRandomCircle(), SPAWN_INTERVAL);
@@ -89,17 +91,29 @@ class Game {
         window.addEventListener('pointercancel', (e) => this.onPointerUp(e));
     }
 
+    updateCounter() {
+        const counter = document.getElementById('shape-counter');
+        if (counter) {
+            counter.textContent = this.shapes.length;
+            if (this.shapes.length >= MAX_SHAPES) {
+                counter.classList.add('limit-reached');
+            } else {
+                counter.classList.remove('limit-reached');
+            }
+        }
+    }
+
     spawnRandomCircle() {
+        if (this.shapes.length >= MAX_SHAPES) return;
         const x = Math.random() * (window.innerWidth - 100);
         const y = Math.random() * (window.innerHeight - 100);
         const color = COLORS[Math.floor(Math.random() * COLORS.length)];
 
         // Start with Logic Level 2 (Circle). 
-        // Prompt says: "Start with a blank page... spawn a circle... 2 circles -> triangle".
         // Triangle is 3 sides. 
-        // So let's denote Circle as `sides = 2`.
         const shape = new Shape(x, y, color, 2);
         this.shapes.push(shape);
+        this.updateCounter();
         this.checkMerge(shape);
         this.saveState();
     }
@@ -107,8 +121,10 @@ class Game {
     spawnShape(x, y, color, sides) {
         const shape = new Shape(x, y, color, sides);
         this.shapes.push(shape);
+        this.updateCounter();
         this.checkMerge(shape);
         this.saveState();
+        return shape;
     }
 
     onPointerDown(e) {
@@ -150,6 +166,7 @@ class Game {
         // Check Merges
         this.checkMerge(this.draggedShape);
         this.saveState();
+        this.updateCounter(); // Update counter after potential merges
 
         this.draggedShape = null;
     }
@@ -188,10 +205,12 @@ class Game {
                 const index = this.shapes.indexOf(s);
                 if (index > -1) this.shapes.splice(index, 1);
             });
+            this.updateCounter(); // Update counter after removing shapes
 
             // Spawn new shape
             const newSides = shape.sides + 1;
-            this.spawnShape(centerX, centerY, shape.color, newSides);
+            const newShape = this.spawnShape(centerX, centerY, shape.color, newSides);
+            newShape.element.classList.add('merge-anim');
 
             // Trigger feedback sound or visual? (Visual is built-in spawn-anim)
         }
@@ -244,10 +263,10 @@ class Game {
 
         // Purge local storage
         localStorage.removeItem('shapes_state');
+        this.updateCounter();
     }
 }
 
-// Start Game
 // Start Game
 const game = new Game();
 
