@@ -12,7 +12,7 @@ class Shape {
         this.x = x;
         this.y = y;
         this.color = color;
-        this.sides = sides; // 0 for circle, 3 for triangle, 4 square, etc.
+        this.sides = sides; // 2 for circle, 3 for triangle, 4 square, etc.
         this.width = 80;
         this.height = 80;
         this.element = null;
@@ -86,7 +86,7 @@ class Game {
         this.updateCounter(); // Initial update after loading state
 
         // Start Loops
-        setInterval(() => this.spawnRandomCircle(), SPAWN_INTERVAL);
+        setInterval(() => this.spawnShape(), SPAWN_INTERVAL);
 
         // Event Listeners
         CONTAINER.addEventListener('pointerdown', (e) => this.onPointerDown(e));
@@ -107,22 +107,21 @@ class Game {
         }
     }
 
-    spawnRandomCircle() {
+    spawnShape(x, y, color, sides = 2) {
         if (this.shapes.length >= MAX_SHAPES) return;
-        const x = Math.random() * (window.innerWidth - 100);
-        const y = Math.random() * (window.innerHeight - 100);
-        const color = COLORS[Math.floor(Math.random() * COLORS.length)];
 
-        // Start with Logic Level 2 (Circle). 
-        // Triangle is 3 sides. 
-        const shape = new Shape(x, y, color, 2);
-        this.shapes.push(shape);
-        this.updateCounter();
-        this.checkMerge(shape);
-        this.saveState();
-    }
+        if (x === undefined) {
+            x = Math.random() * (window.innerWidth - 100);
+        }
 
-    spawnShape(x, y, color, sides) {
+        if (y === undefined) {
+            y = Math.random() * (window.innerHeight - 100);
+        }
+
+        if (color === undefined) {
+            color = COLORS[Math.floor(Math.random() * COLORS.length)];
+        }
+
         const shape = new Shape(x, y, color, sides);
         this.shapes.push(shape);
         this.updateCounter();
