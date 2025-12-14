@@ -74,6 +74,49 @@ class Shape {
     }
 }
 
+class ShapeCounter {
+    constructor() {
+        this.stats = {};
+        this.element = document.getElementById('shape-counter');
+        this.loadStats();
+    }
+
+    loadStats() {
+        const saved = localStorage.getItem('shape_stats');
+        if (saved) {
+            try {
+                this.stats = JSON.parse(saved);
+            } catch (e) {
+                console.error('Failed to load stats', e);
+                this.stats = {};
+            }
+        }
+    }
+
+    saveStats() {
+        localStorage.setItem('shape_stats', JSON.stringify(this.stats));
+    }
+
+    trackSpawn(shape) {
+        if (!this.stats[shape.color]) {
+            this.stats[shape.color] = {};
+        }
+        this.stats[shape.color][shape.sides] = (this.stats[shape.color][shape.sides] || 0) + 1;
+        this.saveStats();
+    }
+
+    updateDisplay(count) {
+        if (this.element) {
+            this.element.textContent = count;
+            if (count >= MAX_SHAPES) {
+                this.element.classList.add('limit-reached');
+            } else {
+                this.element.classList.remove('limit-reached');
+            }
+        }
+    }
+}
+
 class Game {
     constructor() {
         this.shapes = [];
@@ -81,9 +124,11 @@ class Game {
         this.dragPointerId = null;
         this.dragOffset = { x: 0, y: 0 };
 
+        this.counter = new ShapeCounter();
+
         // Load saved state
         this.loadState();
-        this.updateCounter(); // Initial update after loading state
+        this.counter.updateDisplay(this.shapes.length); // Initial update after loading state
 
         // Start Loops
         setInterval(() => this.spawnShape(), SPAWN_INTERVAL);
@@ -95,17 +140,7 @@ class Game {
         window.addEventListener('pointercancel', (e) => this.onPointerUp(e));
     }
 
-    updateCounter() {
-        const counter = document.getElementById('shape-counter');
-        if (counter) {
-            counter.textContent = this.shapes.length;
-            if (this.shapes.length >= MAX_SHAPES) {
-                counter.classList.add('limit-reached');
-            } else {
-                counter.classList.remove('limit-reached');
-            }
-        }
-    }
+
 
     spawnShape(x, y, color, sides = 2) {
         if (this.shapes.length >= MAX_SHAPES) return;
@@ -124,7 +159,8 @@ class Game {
 
         const shape = new Shape(x, y, color, sides);
         this.shapes.push(shape);
-        this.updateCounter();
+        this.counter.trackSpawn(shape);
+        this.counter.updateDisplay(this.shapes.length);
         this.checkMerge(shape);
         this.saveState();
         return shape;
@@ -175,7 +211,6 @@ class Game {
         // Check Merges
         this.checkMerge(this.draggedShape);
         this.saveState();
-        this.updateCounter(); // Update counter after potential merges
 
         this.draggedShape = null;
         this.dragPointerId = null;
@@ -215,7 +250,6 @@ class Game {
                 const index = this.shapes.indexOf(s);
                 if (index > -1) this.shapes.splice(index, 1);
             });
-            this.updateCounter(); // Update counter after removing shapes
 
             // Spawn new shape
             const newSides = shape.sides + 1;
@@ -273,7 +307,7 @@ class Game {
 
         // Purge local storage
         localStorage.removeItem('shapes_state');
-        this.updateCounter();
+        this.counter.updateDisplay(this.shapes.length);
     }
 }
 
