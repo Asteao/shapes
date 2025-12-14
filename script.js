@@ -200,11 +200,7 @@ class Game {
         this.counter.updateDisplay(this.shapes.length); // Initial update after loading state
 
         // Start Loops
-        setInterval(() => {
-            localStorage.setItem('last_active_time', Date.now());
-            if (this.shapes.length >= MAX_SHAPES) return;
-            this.spawnShape();
-        }, SPAWN_INTERVAL);
+        this.startSpawnLoop();
 
         // Event Listeners
         CONTAINER.addEventListener('pointerdown', (e) => this.onPointerDown(e));
@@ -215,6 +211,9 @@ class Game {
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') {
                 this.processOfflineSpawns();
+                this.startSpawnLoop();
+            } else {
+                clearInterval(this.spawnInterval);
             }
         });
         window.addEventListener('focus', () => this.processOfflineSpawns());
@@ -223,10 +222,18 @@ class Game {
     }
 
 
+    // Main Loop
+    startSpawnLoop() {
+        if (this.spawnInterval) clearInterval(this.spawnInterval);
+        this.spawnInterval = setInterval(() => {
+            this.processOfflineSpawns();
+            localStorage.setItem('last_active_time', Date.now());
+            if (this.shapes.length >= MAX_SHAPES) return;
+            this.spawnShape();
+        }, SPAWN_INTERVAL);
+    }
 
     spawnShape(x, y, color, sides = 2) {
-
-
         if (x === undefined) {
             x = Math.random() * (window.innerWidth - 100);
         }
@@ -255,6 +262,7 @@ class Game {
         const now = Date.now();
         const diff = now - parseInt(lastActive, 10);
         const spawnsNeeded = Math.floor(diff / SPAWN_INTERVAL);
+        if (spawnsNeeded <= 2) return; // Skip if too few spawns needed
         const loopCount = Math.min(spawnsNeeded, OFFLINE_SPAWN_LIMIT);
 
         for (let i = 0; i < loopCount; i++) {
