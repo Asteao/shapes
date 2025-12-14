@@ -200,6 +200,7 @@ class Game {
 
         // Start Loops
         setInterval(() => {
+            localStorage.setItem('last_active_time', Date.now());
             if (this.shapes.length >= MAX_SHAPES) return;
             this.spawnShape();
         }, SPAWN_INTERVAL);
@@ -209,6 +210,15 @@ class Game {
         window.addEventListener('pointermove', (e) => this.onPointerMove(e));
         window.addEventListener('pointerup', (e) => this.onPointerUp(e));
         window.addEventListener('pointercancel', (e) => this.onPointerUp(e));
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                this.processOfflineSpawns();
+            }
+        });
+        window.addEventListener('focus', () => this.processOfflineSpawns());
+
+        this.processOfflineSpawns();
     }
 
 
@@ -235,6 +245,23 @@ class Game {
         this.checkMerge(shape);
         this.saveState();
         return shape;
+    }
+
+    processOfflineSpawns() {
+        const lastActive = localStorage.getItem('last_active_time');
+        if (!lastActive) return;
+
+        const now = Date.now();
+        const diff = now - parseInt(lastActive, 10);
+        const spawnsNeeded = Math.floor(diff / SPAWN_INTERVAL);
+        const loopCount = Math.min(spawnsNeeded, 128);
+
+        for (let i = 0; i < loopCount; i++) {
+            if (this.shapes.length >= MAX_SHAPES) break;
+            this.spawnShape();
+        }
+
+        localStorage.setItem('last_active_time', now);
     }
 
     onPointerDown(e) {
