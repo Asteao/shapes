@@ -124,19 +124,22 @@ p {
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, 0.1) 100%);
 }
 
-.shape.red .shape-inner {
+.shape.red .shape-inner,
+.mini-shape.red .shape-inner {
     background: rgba(255, 71, 87, 0.6);
     box-shadow: inset 0 0 20px rgba(255, 71, 87, 0.4);
     border-color: rgba(255, 71, 87, 0.5);
 }
 
-.shape.blue .shape-inner {
+.shape.blue .shape-inner,
+.mini-shape.blue .shape-inner {
     background: rgba(30, 144, 255, 0.6);
     box-shadow: inset 0 0 20px rgba(30, 144, 255, 0.4);
     border-color: rgba(30, 144, 255, 0.5);
 }
 
-.shape.green .shape-inner {
+.shape.green .shape-inner,
+.mini-shape.green .shape-inner {
     background: rgba(46, 213, 115, 0.6);
     box-shadow: inset 0 0 20px rgba(46, 213, 115, 0.4);
     border-color: rgba(46, 213, 115, 0.5);
@@ -248,11 +251,72 @@ p {
     font-weight: 700;
     color: var(--text-color);
     z-index: 2000;
-    pointer-events: none;
+    pointer-events: auto;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
     transition: color 0.3s ease;
+    cursor: pointer;
+    user-select: none;
 }
 
 #shape-counter.limit-reached {
     color: var(--red);
+}
+
+#stats-overlay {
+    position: fixed;
+    bottom: 60px;
+    right: 20px;
+    background: rgba(15, 12, 41, 0.9);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 16px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    z-index: 2001;
+
+    transform-origin: bottom right;
+    transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+    pointer-events: auto;
+
+    display: flex;
+    flex-direction: row;
+    gap: 16px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+#stats-overlay.hidden {
+    opacity: 0;
+    visibility: hidden;
+    transform: scale(0.95);
+    pointer-events: none;
+}
+
+.stat-column {
+    display: flex;
+    flex-direction: column-reverse;
+    /* Bottom: Lowest Sides, Top: Highest Sides */
+    gap: 8px;
+    min-width: 60px;
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.mini-shape {
+    width: 20px;
+    height: 20px;
+    position: relative;
+    /* Styles shared with regular shape */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.5));
 }

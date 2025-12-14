@@ -34,7 +34,7 @@ class Shape {
         if (this.sides === 2) { // Circle
             inner.style.borderRadius = '50%';
         } else {
-            inner.style.clipPath = this.getPolygonClipPath(this.sides);
+            inner.style.clipPath = Shape.getPolygonClipPath(this.sides);
         }
 
         this.element.appendChild(inner);
@@ -45,7 +45,7 @@ class Shape {
         // We just need to updating CSS on move.
     }
 
-    getPolygonClipPath(sides) {
+    static getPolygonClipPath(sides) {
         // Generate regular polygon vertices
         let vertices = [];
         // Rotate squares by 45 degrees to make them axis-aligned (flat sides)
@@ -78,7 +78,13 @@ class ShapeCounter {
     constructor() {
         this.stats = {};
         this.element = document.getElementById('shape-counter');
+        this.overlay = document.getElementById('stats-overlay');
         this.loadStats();
+
+        this.element.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.toggleStats();
+        });
     }
 
     loadStats() {
@@ -97,12 +103,25 @@ class ShapeCounter {
         localStorage.setItem('shape_stats', JSON.stringify(this.stats));
     }
 
+    reset() {
+        this.stats = {};
+        localStorage.removeItem('shape_stats');
+        if (this.overlay && !this.overlay.classList.contains('hidden')) {
+            this.renderStats();
+        }
+        this.updateDisplay(0);
+    }
+
     trackSpawn(shape) {
         if (!this.stats[shape.color]) {
             this.stats[shape.color] = {};
         }
         this.stats[shape.color][shape.sides] = (this.stats[shape.color][shape.sides] || 0) + 1;
         this.saveStats();
+
+        if (this.overlay && !this.overlay.classList.contains('hidden')) {
+            this.renderStats();
+        }
     }
 
     updateDisplay(count) {
@@ -114,6 +133,55 @@ class ShapeCounter {
                 this.element.classList.remove('limit-reached');
             }
         }
+    }
+
+    toggleStats() {
+        if (this.overlay.classList.contains('hidden')) {
+            this.renderStats();
+            this.overlay.classList.remove('hidden');
+        } else {
+            this.overlay.classList.add('hidden');
+        }
+    }
+
+    renderStats() {
+        this.overlay.innerHTML = '';
+
+        COLORS.forEach(color => {
+            const colDiv = document.createElement('div');
+            colDiv.classList.add('stat-column');
+
+            const colorStats = this.stats[color] || {};
+            const sides = Object.keys(colorStats).map(Number).sort((a, b) => a - b);
+
+            sides.forEach(nSides => {
+                const count = colorStats[nSides];
+                const item = document.createElement('div');
+                item.classList.add('stat-item');
+
+                const val = document.createElement('span');
+                val.textContent = count;
+
+                const shapeDiv = document.createElement('div');
+                shapeDiv.classList.add('mini-shape', color);
+                const inner = document.createElement('div');
+                inner.classList.add('shape-inner');
+
+                if (nSides === 2) {
+                    inner.style.borderRadius = '50%';
+                } else {
+                    inner.style.clipPath = Shape.getPolygonClipPath(nSides);
+                }
+
+                shapeDiv.appendChild(inner);
+                item.appendChild(shapeDiv);
+                item.appendChild(val);
+
+                colDiv.appendChild(item);
+            });
+
+            this.overlay.appendChild(colDiv);
+        });
     }
 }
 
@@ -307,7 +375,7 @@ class Game {
 
         // Purge local storage
         localStorage.removeItem('shapes_state');
-        this.counter.updateDisplay(this.shapes.length);
+        this.counter.reset();
     }
 }
 
