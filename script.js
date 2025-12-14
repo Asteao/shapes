@@ -199,7 +199,10 @@ class Game {
         this.counter.updateDisplay(this.shapes.length); // Initial update after loading state
 
         // Start Loops
-        setInterval(() => this.spawnShape(), SPAWN_INTERVAL);
+        setInterval(() => {
+            if (this.shapes.length >= MAX_SHAPES) return;
+            this.spawnShape();
+        }, SPAWN_INTERVAL);
 
         // Event Listeners
         CONTAINER.addEventListener('pointerdown', (e) => this.onPointerDown(e));
@@ -211,7 +214,7 @@ class Game {
 
 
     spawnShape(x, y, color, sides = 2) {
-        if (this.shapes.length >= MAX_SHAPES) return;
+
 
         if (x === undefined) {
             x = Math.random() * (window.innerWidth - 100);
