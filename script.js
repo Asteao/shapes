@@ -1,9 +1,10 @@
 const COLORS = ['red', 'blue', 'green'];
 const urlParams = new URLSearchParams(window.location.search);
 const paramL = parseInt(urlParams.get('l'));
-const MAX_SHAPES = isNaN(paramL) ? 128 : paramL;
+const MAX_SHAPES = isNaN(paramL) ? 64 : paramL;
 const paramT = parseInt(urlParams.get('t'));
 const SPAWN_INTERVAL = isNaN(paramT) ? 3000 : paramT;
+const OFFLINE_SPAWN_LIMIT = MAX_SHAPES;
 const CONTAINER = document.getElementById('game-container');
 
 class Shape {
@@ -254,7 +255,7 @@ class Game {
         const now = Date.now();
         const diff = now - parseInt(lastActive, 10);
         const spawnsNeeded = Math.floor(diff / SPAWN_INTERVAL);
-        const loopCount = Math.min(spawnsNeeded, 128);
+        const loopCount = Math.min(spawnsNeeded, OFFLINE_SPAWN_LIMIT);
 
         for (let i = 0; i < loopCount; i++) {
             if (this.shapes.length >= MAX_SHAPES) break;
