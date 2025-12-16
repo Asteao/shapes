@@ -7,6 +7,66 @@ const SPAWN_INTERVAL = isNaN(paramT) ? 3000 : paramT;
 const OFFLINE_SPAWN_LIMIT = MAX_SHAPES;
 const CONTAINER = document.getElementById('game-container');
 
+class GameState {
+    constructor() {
+        this.version = 1;
+        this.shapes = []; // array of plain objects
+        this.stats = {};  // existing stats structure
+        this.lastActiveTime = null;
+    }
+
+    recordSpawn(shapeData) {
+        const { color, sides } = shapeData;
+        if (!this.stats[color]) this.stats[color] = {};
+        this.stats[color][sides] = (this.stats[color][sides] || 0) + 1;
+    }
+
+    reset() {
+        this.shapes = [];
+        this.stats = {};
+        this.lastActiveTime = null;
+    }
+
+    toJSON() {
+        return {
+            version: this.version,
+            shapes: this.shapes,
+            stats: this.stats,
+            lastActiveTime: this.lastActiveTime
+        };
+    }
+
+    static fromJSON(data) {
+        const state = new GameState();
+        state.version = data.version ?? 1;
+        state.shapes = data.shapes ?? [];
+        state.stats = data.stats ?? {};
+        state.lastActiveTime = data.lastActiveTime ?? null;
+        return state;
+    }
+}
+
+class StorageService {
+    static save(state) {
+        localStorage.setItem('game_state', JSON.stringify(state));
+    }
+
+    static load() {
+        const raw = localStorage.getItem('game_state');
+        if (!raw) return null;
+        try {
+            return JSON.parse(raw);
+        } catch (e) {
+            console.error('Failed to parse game state', e);
+            return null;
+        }
+    }
+
+    static clear() {
+        localStorage.removeItem('game_state');
+    }
+}
+
 class Shape {
     constructor(x, y, color, sides, id = null) {
         this.id = id || Math.random().toString(36).substr(2, 9);
@@ -40,10 +100,6 @@ class Shape {
 
         this.element.appendChild(inner);
         CONTAINER.appendChild(this.element);
-
-        // Bind events if needed, but handled globally for better perf? 
-        // Actually global pointer events are safer for dragging.
-        // We just need to updating CSS on move.
     }
 
     static getPolygonClipPath(sides) {
@@ -76,53 +132,15 @@ class Shape {
 }
 
 class ShapeCounter {
-    constructor() {
-        this.stats = {};
+    constructor(gameState) {
+        this.state = gameState;
         this.element = document.getElementById('shape-counter');
         this.overlay = document.getElementById('stats-overlay');
-        this.loadStats();
 
         this.element.addEventListener('click', (e) => {
             e.stopPropagation();
             this.toggleStats();
         });
-    }
-
-    loadStats() {
-        const saved = localStorage.getItem('shape_stats');
-        if (saved) {
-            try {
-                this.stats = JSON.parse(saved);
-            } catch (e) {
-                console.error('Failed to load stats', e);
-                this.stats = {};
-            }
-        }
-    }
-
-    saveStats() {
-        localStorage.setItem('shape_stats', JSON.stringify(this.stats));
-    }
-
-    reset() {
-        this.stats = {};
-        localStorage.removeItem('shape_stats');
-        if (this.overlay && !this.overlay.classList.contains('hidden')) {
-            this.renderStats();
-        }
-        this.updateDisplay(0);
-    }
-
-    trackSpawn(shape) {
-        if (!this.stats[shape.color]) {
-            this.stats[shape.color] = {};
-        }
-        this.stats[shape.color][shape.sides] = (this.stats[shape.color][shape.sides] || 0) + 1;
-        this.saveStats();
-
-        if (this.overlay && !this.overlay.classList.contains('hidden')) {
-            this.renderStats();
-        }
     }
 
     updateDisplay(count) {
@@ -152,7 +170,7 @@ class ShapeCounter {
             const colDiv = document.createElement('div');
             colDiv.classList.add('stat-column');
 
-            const colorStats = this.stats[color] || {};
+            const colorStats = this.state.stats[color] || {};
             const sides = Object.keys(colorStats).map(Number).sort((a, b) => a - b);
 
             sides.forEach(nSides => {
@@ -188,16 +206,23 @@ class ShapeCounter {
 
 class Game {
     constructor() {
-        this.shapes = [];
+        // Load saved state
+        const loaded = StorageService.load();
+        this.state = loaded
+            ? GameState.fromJSON(loaded)
+            : new GameState();
+
+        this.runtimeShapes = new Map(); // id -> Shape
         this.draggedShape = null;
         this.dragPointerId = null;
         this.dragOffset = { x: 0, y: 0 };
 
-        this.counter = new ShapeCounter();
+        this.counter = new ShapeCounter(this.state);
 
-        // Load saved state
-        this.loadState();
-        this.counter.updateDisplay(this.shapes.length); // Initial update after loading state
+        // Rehydrate Shapes
+        this.rehydrateShapes();
+
+        this.counter.updateDisplay(this.state.shapes.length);
 
         // Start Loops
         this.startSpawnLoop();
@@ -216,20 +241,29 @@ class Game {
                 clearInterval(this.spawnInterval);
             }
         });
-        window.addEventListener('focus', () => this.processOfflineSpawns());
 
         this.processOfflineSpawns();
     }
 
+    rehydrateShapes() {
+        this.state.shapes.forEach(data => {
+            const shape = new Shape(data.x, data.y, data.color, data.sides, data.id);
+            this.runtimeShapes.set(data.id, shape);
+        });
+    }
 
     // Main Loop
     startSpawnLoop() {
         if (this.spawnInterval) clearInterval(this.spawnInterval);
         this.spawnInterval = setInterval(() => {
             this.processOfflineSpawns();
-            localStorage.setItem('last_active_time', Date.now());
-            if (this.shapes.length >= MAX_SHAPES) return;
+            // Update last active time to state
+            this.state.lastActiveTime = Date.now();
+
+            // Only spawn if we haven't reached limit
+            if (this.state.shapes.length >= MAX_SHAPES) return;
             this.spawnShape();
+            StorageService.save(this.state.toJSON());
         }, SPAWN_INTERVAL);
     }
 
@@ -246,31 +280,40 @@ class Game {
             color = COLORS[Math.floor(Math.random() * COLORS.length)];
         }
 
-        const shape = new Shape(x, y, color, sides);
-        this.shapes.push(shape);
-        this.counter.trackSpawn(shape);
-        this.counter.updateDisplay(this.shapes.length);
+        const id = Math.random().toString(36).substr(2, 9);
+        const shapeData = { id, x, y, color, sides };
+
+        // Update State
+        this.state.shapes.push(shapeData);
+        this.state.recordSpawn(shapeData);
+        this.state.lastActiveTime = Date.now();
+
+        // Create Runtime Shape
+        const shape = new Shape(x, y, color, sides, id);
+        this.runtimeShapes.set(id, shape);
+
+        this.counter.updateDisplay(this.state.shapes.length);
         this.checkMerge(shape);
-        this.saveState();
         return shape;
     }
 
     processOfflineSpawns() {
-        const lastActive = localStorage.getItem('last_active_time');
+        const lastActive = this.state.lastActiveTime;
         if (!lastActive) return;
 
         const now = Date.now();
-        const diff = now - parseInt(lastActive, 10);
+        const diff = now - lastActive;
         const spawnsNeeded = Math.floor(diff / SPAWN_INTERVAL);
         if (spawnsNeeded <= 2) return; // Skip if too few spawns needed
         const loopCount = Math.min(spawnsNeeded, OFFLINE_SPAWN_LIMIT);
 
         for (let i = 0; i < loopCount; i++) {
-            if (this.shapes.length >= MAX_SHAPES) break;
+            if (this.state.shapes.length >= MAX_SHAPES) break;
             this.spawnShape();
         }
 
-        localStorage.setItem('last_active_time', now);
+        this.state.lastActiveTime = now;
+        StorageService.save(this.state.toJSON());
     }
 
     onPointerDown(e) {
@@ -281,7 +324,7 @@ class Game {
         if (!target) return;
 
         const id = target.dataset.id;
-        this.draggedShape = this.shapes.find(s => s.id === id);
+        this.draggedShape = this.runtimeShapes.get(id);
 
         if (this.draggedShape) {
             this.dragPointerId = e.pointerId;
@@ -306,6 +349,13 @@ class Game {
         const y = e.clientY - this.dragOffset.y;
 
         this.draggedShape.setPosition(x, y);
+
+        // Update State Position
+        const shapeData = this.state.shapes.find(s => s.id === this.draggedShape.id);
+        if (shapeData) {
+            shapeData.x = x;
+            shapeData.y = y;
+        }
     }
 
     onPointerUp(e) {
@@ -317,7 +367,6 @@ class Game {
 
         // Check Merges
         this.checkMerge(this.draggedShape);
-        this.saveState();
 
         this.draggedShape = null;
         this.dragPointerId = null;
@@ -330,7 +379,7 @@ class Game {
         // Level N -> Needs N -> Makes Level N+1
 
         const needed = shape.sides;
-        const candidates = this.shapes.filter(s =>
+        const candidates = Array.from(this.runtimeShapes.values()).filter(s =>
             s !== shape &&
             s.sides === shape.sides &&
             s.color === shape.color &&
@@ -354,8 +403,10 @@ class Game {
             // Remove old shapes
             shapesToMerge.forEach(s => {
                 s.destroy();
-                const index = this.shapes.indexOf(s);
-                if (index > -1) this.shapes.splice(index, 1);
+                this.runtimeShapes.delete(s.id);
+                // Remove from state
+                const idx = this.state.shapes.findIndex(d => d.id === s.id);
+                if (idx > -1) this.state.shapes.splice(idx, 1);
             });
 
             // Spawn new shape
@@ -379,42 +430,22 @@ class Game {
         return d < 80; // Touching if distance < diameter (or width)
     }
 
-    saveState() {
-        const state = this.shapes.map(s => ({
-            id: s.id,
-            x: s.x,
-            y: s.y,
-            color: s.color,
-            sides: s.sides
-        }));
-        localStorage.setItem('shapes_state', JSON.stringify(state));
-    }
-
-    loadState() {
-        const saved = localStorage.getItem('shapes_state');
-        if (saved) {
-            try {
-                const parsed = JSON.parse(saved);
-                if (Array.isArray(parsed)) {
-                    parsed.forEach(data => {
-                        const shape = new Shape(data.x, data.y, data.color, data.sides, data.id);
-                        this.shapes.push(shape);
-                    });
-                }
-            } catch (e) {
-                console.error('Failed to load state', e);
-            }
-        }
-    }
-
     reset() {
-        // Destroy all existing shapes
-        this.shapes.forEach(shape => shape.destroy());
-        this.shapes = [];
+        // Destroy all runtime shapes
+        this.runtimeShapes.forEach(shape => shape.destroy());
+        this.runtimeShapes.clear();
 
-        // Purge local storage
-        localStorage.removeItem('shapes_state');
-        this.counter.reset();
+        // Reset state
+        this.state.reset();
+
+        // Save once
+        StorageService.save(this.state.toJSON());
+
+        this.counter.updateDisplay(0);
+        // Refresh UI if needed
+        if (this.counter.overlay && !this.counter.overlay.classList.contains('hidden')) {
+            this.counter.renderStats();
+        }
     }
 }
 
