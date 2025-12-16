@@ -125,21 +125,24 @@ p {
 }
 
 .shape.red .shape-inner,
-.mini-shape.red .shape-inner {
+.mini-shape.red .shape-inner,
+.preview-shape.red .shape-inner {
     background: rgba(255, 71, 87, 0.6);
     box-shadow: inset 0 0 20px rgba(255, 71, 87, 0.4);
     border-color: rgba(255, 71, 87, 0.5);
 }
 
 .shape.blue .shape-inner,
-.mini-shape.blue .shape-inner {
+.mini-shape.blue .shape-inner,
+.preview-shape.blue .shape-inner {
     background: rgba(30, 144, 255, 0.6);
     box-shadow: inset 0 0 20px rgba(30, 144, 255, 0.4);
     border-color: rgba(30, 144, 255, 0.5);
 }
 
 .shape.green .shape-inner,
-.mini-shape.green .shape-inner {
+.mini-shape.green .shape-inner,
+.preview-shape.green .shape-inner {
     background: rgba(46, 213, 115, 0.6);
     box-shadow: inset 0 0 20px rgba(46, 213, 115, 0.4);
     border-color: rgba(46, 213, 115, 0.5);
@@ -319,4 +322,109 @@ p {
     justify-content: center;
     align-items: center;
     filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.5));
+}
+
+/* RNG UI */
+#rng-ui-layer {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    pointer-events: none;
+}
+
+#dice-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-color);
+    font-size: 2rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 10px;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    pointer-events: auto;
+}
+
+#dice-btn:hover {
+    opacity: 1;
+}
+
+#rng-overlay {
+    margin-top: 10px;
+    background: rgba(15, 12, 41, 0.9);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 16px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+
+    transform-origin: top left;
+    transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+    pointer-events: auto;
+
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+#rng-overlay.hidden {
+    opacity: 0;
+    visibility: hidden;
+    transform: scale(0.95);
+    pointer-events: none;
+}
+
+.rng-slot {
+    width: 80px;
+    height: 80px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    /* Slight rounded container */
+}
+
+/* Empty slot styling */
+.rng-slot.empty {
+    border: 2px dashed rgba(255, 255, 255, 0.1);
+}
+
+.preview-shape {
+    width: 80px;
+    height: 80px;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.5));
+}
+
+/* Pulse Animation for RNG Slots */
+@keyframes pulse-slot {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 rgba(255, 255, 255, 0);
+    }
+
+    50% {
+        transform: scale(1.1);
+        box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 rgba(255, 255, 255, 0);
+    }
+}
+
+.rng-slot.pulse-active {
+    animation: pulse-slot 0.4s ease-out;
 }

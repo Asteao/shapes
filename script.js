@@ -3,7 +3,7 @@ const urlParams = new URLSearchParams(window.location.search);
 const paramL = parseInt(urlParams.get('l'));
 const MAX_SHAPES = isNaN(paramL) ? 64 : paramL;
 const paramT = parseInt(urlParams.get('t'));
-const SPAWN_INTERVAL = isNaN(paramT) ? 3000 : paramT;
+const SPAWN_INTERVAL = isNaN(paramT) ? 1500 : paramT;
 const OFFLINE_SPAWN_LIMIT = MAX_SHAPES;
 const CONTAINER = document.getElementById('game-container');
 
@@ -13,6 +13,18 @@ class GameState {
         this.shapes = []; // array of plain objects
         this.stats = {};  // existing stats structure
         this.lastActiveTime = null;
+        this.rngSlots = this.getDefaultSlots();
+    }
+
+    getDefaultSlots() {
+        return [
+            { color: COLORS[0], sides: 2 },
+            { color: COLORS[1], sides: 2 },
+            { color: COLORS[2], sides: 2 },
+            null,
+            null,
+            null
+        ];
     }
 
     recordSpawn(shapeData) {
@@ -25,6 +37,7 @@ class GameState {
         this.shapes = [];
         this.stats = {};
         this.lastActiveTime = null;
+        this.rngSlots = this.getDefaultSlots();
     }
 
     toJSON() {
@@ -32,7 +45,8 @@ class GameState {
             version: this.version,
             shapes: this.shapes,
             stats: this.stats,
-            lastActiveTime: this.lastActiveTime
+            lastActiveTime: this.lastActiveTime,
+            rngSlots: this.rngSlots
         };
     }
 
@@ -42,6 +56,7 @@ class GameState {
         state.shapes = data.shapes ?? [];
         state.stats = data.stats ?? {};
         state.lastActiveTime = data.lastActiveTime ?? null;
+        state.rngSlots = data.rngSlots ?? state.getDefaultSlots();
         return state;
     }
 }
@@ -204,6 +219,81 @@ class ShapeCounter {
     }
 }
 
+class RNG {
+    constructor(state) {
+        this.state = state;
+        this.diceBtn = document.getElementById('dice-btn');
+        this.overlay = document.getElementById('rng-overlay');
+
+        if (this.diceBtn) {
+            this.diceBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggle();
+            });
+        }
+    }
+
+    roll() {
+        const slots = this.state.rngSlots;
+        const index = Math.floor(Math.random() * slots.length);
+
+        // Visual Feedback
+        if (this.overlay && !this.overlay.classList.contains('hidden')) {
+            const slotElements = this.overlay.querySelectorAll('.rng-slot');
+            if (slotElements[index]) {
+                const el = slotElements[index];
+                el.classList.remove('pulse-active');
+                // Force reflow
+                void el.offsetWidth;
+                el.classList.add('pulse-active');
+            }
+        }
+
+        return slots[index];
+    }
+
+    toggle() {
+        if (this.overlay && this.overlay.classList.contains('hidden')) {
+            this.render();
+            this.overlay.classList.remove('hidden');
+        } else if (this.overlay) {
+            this.overlay.classList.add('hidden');
+        }
+    }
+
+    render() {
+        if (!this.overlay) return;
+        this.overlay.innerHTML = '';
+        const slots = this.state.rngSlots;
+
+        slots.forEach(slot => {
+            const slotEl = document.createElement('div');
+            slotEl.classList.add('rng-slot');
+
+            if (!slot) {
+                slotEl.classList.add('empty');
+            } else {
+                const shapeDiv = document.createElement('div');
+                shapeDiv.classList.add('preview-shape', slot.color);
+
+                const inner = document.createElement('div');
+                inner.classList.add('shape-inner');
+
+                if (slot.sides === 2) {
+                    inner.style.borderRadius = '50%';
+                } else {
+                    inner.style.clipPath = Shape.getPolygonClipPath(slot.sides);
+                }
+
+                shapeDiv.appendChild(inner);
+                slotEl.appendChild(shapeDiv);
+            }
+
+            this.overlay.appendChild(slotEl);
+        });
+    }
+}
+
 class Game {
     constructor() {
         // Load saved state
@@ -217,7 +307,10 @@ class Game {
         this.dragPointerId = null;
         this.dragOffset = { x: 0, y: 0 };
 
+        this.rng = new RNG(this.state);
+
         this.counter = new ShapeCounter(this.state);
+
 
         // Rehydrate Shapes
         this.rehydrateShapes();
@@ -262,7 +355,11 @@ class Game {
 
             // Only spawn if we haven't reached limit
             if (this.state.shapes.length >= MAX_SHAPES) return;
-            this.spawnShape();
+
+            const spawnSlot = this.rng.roll();
+            if (spawnSlot) {
+                this.spawnShape(undefined, undefined, spawnSlot.color, spawnSlot.sides);
+            }
             StorageService.save(this.state.toJSON());
         }, SPAWN_INTERVAL);
     }
