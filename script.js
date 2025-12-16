@@ -252,6 +252,24 @@ class RNG {
         return slots[index];
     }
 
+    checkDrop(x, y) {
+        if (!this.overlay || this.overlay.classList.contains('hidden')) return -1;
+
+        const slotElements = this.overlay.querySelectorAll('.rng-slot');
+        for (let i = 0; i < slotElements.length; i++) {
+            // Only consider empty slots
+            if (this.state.rngSlots[i] !== null) continue;
+
+            const rect = slotElements[i].getBoundingClientRect();
+            if (x >= rect.left && x <= rect.right &&
+                y >= rect.top && y <= rect.bottom) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+
     toggle() {
         if (this.overlay && this.overlay.classList.contains('hidden')) {
             this.render();
@@ -430,6 +448,7 @@ class Game {
             this.dragOffset.x = e.clientX - rect.left;
             this.dragOffset.y = e.clientY - rect.top;
 
+
             // Remove transitions during drag for responsiveness
             this.draggedShape.element.style.transition = 'none';
 
@@ -461,6 +480,30 @@ class Game {
 
         // Restore transition
         this.draggedShape.element.style.transition = '';
+
+        // Check Drop on RNG Slot
+        const dropSlotIndex = this.rng.checkDrop(e.clientX, e.clientY);
+        if (dropSlotIndex !== -1) {
+            // Update Slot
+            this.state.rngSlots[dropSlotIndex] = {
+                color: this.draggedShape.color,
+                sides: this.draggedShape.sides
+            };
+            this.rng.render();
+
+            // Destroy Shape (Sacrifice)
+            this.draggedShape.destroy();
+            this.runtimeShapes.delete(this.draggedShape.id);
+            const idx = this.state.shapes.findIndex(s => s.id === this.draggedShape.id);
+            if (idx > -1) this.state.shapes.splice(idx, 1);
+
+            StorageService.save(this.state.toJSON());
+            this.counter.updateDisplay(this.state.shapes.length);
+
+            this.draggedShape = null;
+            this.dragPointerId = null;
+            return;
+        }
 
         // Check Merges
         this.checkMerge(this.draggedShape);
