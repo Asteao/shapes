@@ -220,8 +220,9 @@ class ShapeCounter {
 }
 
 class RNG {
-    constructor(state) {
+    constructor(state, onShapeDown) {
         this.state = state;
+        this.onShapeDown = onShapeDown;
         this.diceBtn = document.getElementById('dice-btn');
         this.overlay = document.getElementById('rng-overlay');
 
@@ -284,7 +285,7 @@ class RNG {
         this.overlay.innerHTML = '';
         const slots = this.state.rngSlots;
 
-        slots.forEach(slot => {
+        slots.forEach((slot, index) => {
             const slotEl = document.createElement('div');
             slotEl.classList.add('rng-slot');
 
@@ -293,6 +294,12 @@ class RNG {
             } else {
                 const shapeDiv = document.createElement('div');
                 shapeDiv.classList.add('preview-shape', slot.color);
+
+                shapeDiv.addEventListener('pointerdown', (e) => {
+                    // Prevent propagation so we don't trigger other things (though overlay covers game)
+                    e.stopPropagation();
+                    if (this.onShapeDown) this.onShapeDown(index, e);
+                });
 
                 const inner = document.createElement('div');
                 inner.classList.add('shape-inner');
@@ -325,7 +332,7 @@ class Game {
         this.dragPointerId = null;
         this.dragOffset = { x: 0, y: 0 };
 
-        this.rng = new RNG(this.state);
+        this.rng = new RNG(this.state, (idx, e) => this.onRngShapeDown(idx, e));
 
         this.counter = new ShapeCounter(this.state);
 
@@ -431,6 +438,36 @@ class Game {
         StorageService.save(this.state.toJSON());
     }
 
+    onRngShapeDown(slotIndex, e) {
+        const slot = this.state.rngSlots[slotIndex];
+        if (!slot) return;
+
+        // Consume Slot
+        this.state.rngSlots[slotIndex] = null;
+        this.rng.render();
+        StorageService.save(this.state.toJSON());
+
+        // Spawn Shape at Cursor
+        // Center the shape on the cursor (width/height is 80, so radius 40)
+        const x = e.clientX - 40;
+        const y = e.clientY - 40;
+        const shape = this.spawnShape(x, y, slot.color, slot.sides);
+
+        // Initiate Drag
+        this.draggedShape = shape;
+        this.dragPointerId = e.pointerId;
+        this.dragOffset = { x: 40, y: 40 }; // Center offset
+
+        shape.element.style.transition = 'none';
+        shape.element.style.zIndex = '3000';
+
+        try {
+            shape.element.setPointerCapture(e.pointerId);
+        } catch (err) {
+            console.warn('Failed to capture pointer', err);
+        }
+    }
+
     onPointerDown(e) {
         // Ignore if already dragging
         if (this.draggedShape) return;
@@ -451,6 +488,7 @@ class Game {
 
             // Remove transitions during drag for responsiveness
             this.draggedShape.element.style.transition = 'none';
+            this.draggedShape.element.style.zIndex = '3000';
 
             // Capture the pointer to ensure we receive all events even if cursor moves off element
             target.setPointerCapture(e.pointerId);
@@ -480,6 +518,7 @@ class Game {
 
         // Restore transition
         this.draggedShape.element.style.transition = '';
+        this.draggedShape.element.style.zIndex = '';
 
         // Check Drop on RNG Slot
         const dropSlotIndex = this.rng.checkDrop(e.clientX, e.clientY);
