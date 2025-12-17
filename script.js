@@ -18,9 +18,9 @@ class GameState {
 
     getDefaultSlots() {
         return [
-            { color: COLORS[0], sides: 2 },
-            { color: COLORS[1], sides: 2 },
-            { color: COLORS[2], sides: 2 },
+            { color: COLORS[0], sides: 2, attributes: ["spawner"] },
+            { color: COLORS[1], sides: 2, attributes: ["spawner"] },
+            { color: COLORS[2], sides: 2, attributes: ["spawner"] },
             null,
             null,
             null
@@ -254,7 +254,10 @@ class RNG {
             }
         }
 
-        return slots[index];
+        const slot = slots[index];
+        if (!slot) return null;
+
+        return { ...slot, index };
     }
 
     checkDrop(x, y) {
@@ -274,6 +277,11 @@ class RNG {
         return -1;
     }
 
+    clearSlot(index) {
+        this.state.rngSlots[index] = null;
+        this.render();
+        StorageService.save(this.state.toJSON());
+    }
 
     toggle() {
         if (this.overlay && this.overlay.classList.contains('hidden')) {
@@ -298,6 +306,9 @@ class RNG {
             } else {
                 const shapeDiv = document.createElement('div');
                 shapeDiv.classList.add('preview-shape', slot.color);
+                if (slot.attributes && slot.attributes.includes('spawner')) {
+                    shapeDiv.classList.add('spawner');
+                }
 
                 shapeDiv.addEventListener('pointerdown', (e) => {
                     // Prevent propagation so we don't trigger other things (though overlay covers game)
@@ -383,11 +394,18 @@ class Game {
             this.state.lastActiveTime = Date.now();
 
             // Only spawn if we haven't reached limit
-            if (this.state.shapes.length >= MAX_SHAPES) return;
+            if (this.state.shapes.length >= MAX_SHAPES) {
+                StorageService.save(this.state.toJSON());
+                return;
+            }
 
             const spawnSlot = this.rng.roll();
             if (spawnSlot) {
                 this.spawnShape(undefined, undefined, spawnSlot.color, spawnSlot.sides);
+                // Consume spawn slot if not spawner
+                if (!spawnSlot.attributes.includes('spawner')) {
+                    this.rng.clearSlot(spawnSlot.index);
+                }
             }
             StorageService.save(this.state.toJSON());
         }, SPAWN_INTERVAL);
@@ -438,6 +456,10 @@ class Game {
             const spawnSlot = this.rng.roll();
             if (spawnSlot) {
                 this.spawnShape(undefined, undefined, spawnSlot.color, spawnSlot.sides);
+                // Consume spawn slot if not spawner
+                if (!spawnSlot.attributes.includes('spawner')) {
+                    this.rng.clearSlot(spawnSlot.index);
+                }
             }
         }
 
@@ -450,15 +472,13 @@ class Game {
         if (!slot) return;
 
         // Consume Slot
-        this.state.rngSlots[slotIndex] = null;
-        this.rng.render();
-        StorageService.save(this.state.toJSON());
+        this.rng.clearSlot(slotIndex);
 
         // Spawn Shape at Cursor
         // Center the shape on the cursor (width/height is 80, so radius 40)
         const x = e.clientX - 40;
         const y = e.clientY - 40;
-        const shape = this.spawnShape(x, y, slot.color, slot.sides);
+        const shape = this.spawnShape(x, y, slot.color, slot.sides, slot.attributes);
 
         // Initiate Drag
         this.draggedShape = shape;
@@ -533,7 +553,8 @@ class Game {
             // Update Slot
             this.state.rngSlots[dropSlotIndex] = {
                 color: this.draggedShape.color,
-                sides: this.draggedShape.sides
+                sides: this.draggedShape.sides,
+                attributes: this.draggedShape.attributes
             };
             this.rng.render();
 
