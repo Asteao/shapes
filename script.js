@@ -83,12 +83,13 @@ class StorageService {
 }
 
 class Shape {
-    constructor(x, y, color, sides, id = null) {
+    constructor(x, y, color, sides, id = null, attributes = []) {
         this.id = id || Math.random().toString(36).substr(2, 9);
         this.x = x;
         this.y = y;
         this.color = color;
         this.sides = sides; // 2 for circle, 3 for triangle, 4 square, etc.
+        this.attributes = attributes;
         this.width = 80;
         this.height = 80;
         this.element = null;
@@ -99,6 +100,9 @@ class Shape {
     init() {
         this.element = document.createElement('div');
         this.element.classList.add('shape', this.color, 'spawn-anim');
+        if (this.attributes.includes('spawner')) {
+            this.element.classList.add('spawner');
+        }
         this.element.style.left = `${this.x}px`;
         this.element.style.top = `${this.y}px`;
         this.element.dataset.id = this.id;
@@ -365,7 +369,7 @@ class Game {
 
     rehydrateShapes() {
         this.state.shapes.forEach(data => {
-            const shape = new Shape(data.x, data.y, data.color, data.sides, data.id);
+            const shape = new Shape(data.x, data.y, data.color, data.sides, data.id, data.attributes);
             this.runtimeShapes.set(data.id, shape);
         });
     }
@@ -389,7 +393,7 @@ class Game {
         }, SPAWN_INTERVAL);
     }
 
-    spawnShape(x, y, color, sides = 2) {
+    spawnShape(x, y, color, sides = 2, attributes = []) {
         if (x === undefined) {
             x = Math.random() * (window.innerWidth - 100);
         }
@@ -403,7 +407,7 @@ class Game {
         }
 
         const id = Math.random().toString(36).substr(2, 9);
-        const shapeData = { id, x, y, color, sides };
+        const shapeData = { id, x, y, color, sides, attributes };
 
         // Update State
         this.state.shapes.push(shapeData);
@@ -411,7 +415,7 @@ class Game {
         this.state.lastActiveTime = Date.now();
 
         // Create Runtime Shape
-        const shape = new Shape(x, y, color, sides, id);
+        const shape = new Shape(x, y, color, sides, id, attributes);
         this.runtimeShapes.set(id, shape);
 
         this.counter.updateDisplay(this.state.shapes.length);
@@ -558,12 +562,18 @@ class Game {
         // Level N -> Needs N -> Makes Level N+1
 
         const needed = shape.sides;
-        const candidates = Array.from(this.runtimeShapes.values()).filter(s =>
-            s !== shape &&
-            s.sides === shape.sides &&
-            s.color === shape.color &&
-            this.isTouching(shape, s)
-        );
+        const candidates = Array.from(this.runtimeShapes.values()).filter(s => {
+            if (s === shape) return false;
+            // Basic checks
+            if (s.sides !== shape.sides || s.color !== shape.color) return false;
+
+            // Attribute check (exact match required)
+            const a1 = [...s.attributes].sort();
+            const a2 = [...shape.attributes].sort();
+            if (JSON.stringify(a1) !== JSON.stringify(a2)) return false;
+
+            return this.isTouching(shape, s);
+        });
 
         // We need (needed - 1) more shapes, because we have 'shape' itself.
         if (candidates.length >= needed - 1) {
@@ -590,7 +600,7 @@ class Game {
 
             // Spawn new shape
             const newSides = shape.sides + 1;
-            const newShape = this.spawnShape(centerX, centerY, shape.color, newSides);
+            const newShape = this.spawnShape(centerX, centerY, shape.color, newSides, shape.attributes);
             newShape.element.classList.add('merge-anim');
 
             // Trigger feedback sound or visual? (Visual is built-in spawn-anim)
