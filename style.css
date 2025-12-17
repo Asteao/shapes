@@ -433,3 +433,94 @@ p {
 .rng-slot.pulse-active {
     animation: pulse-slot 0.4s ease-out;
 }
+
+/* Spawner UI */
+#spawner-ui-layer {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    /* Overlay above button */
+    align-items: flex-start;
+    pointer-events: none;
+}
+
+#hexagon-btn {
+    pointer-events: auto;
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    width: 50px;
+    height: 50px;
+    transition: transform 0.1s, opacity 0.2s;
+    opacity: 0.7;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+#hexagon-btn:hover {
+    opacity: 1;
+}
+
+#hexagon-btn:active {
+    transform: scale(0.95);
+}
+
+.hex-visual {
+    width: 100%;
+    height: 100%;
+    /* Pointy-topped hexagon */
+    clip-path: polygon(50% 0%, 93.3% 25%, 93.3% 75%, 50% 100%, 6.7% 75%, 6.7% 25%);
+    background: var(--glass-bg);
+}
+
+.hex-visual .shape-inner {
+    border: 1px solid var(--glass-border);
+    background: rgba(255, 255, 255, 0.1);
+}
+
+#spawner-overlay {
+    pointer-events: auto;
+    margin-bottom: 15px;
+    background: rgba(15, 12, 41, 0.9);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 16px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+
+    transform-origin: bottom left;
+    transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+}
+
+#spawner-overlay.hidden {
+    opacity: 0;
+    visibility: hidden;
+    transform: scale(0.95);
+    pointer-events: none;
+}
+
+.shadow-slot {
+    width: 80px;
+    height: 80px;
+    clip-path: polygon(50% 0%, 93.3% 25%, 93.3% 75%, 50% 100%, 6.7% 75%, 6.7% 25%);
+    background: rgba(0, 0, 0, 0.5);
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+    position: relative;
+    /* Center inner content if any */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Inner shadow/gradient hack for clipped element */
+.shadow-slot::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.6) 0%, rgba(255, 255, 255, 0.05) 100%);
+    pointer-events: none;
+}

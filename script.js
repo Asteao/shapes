@@ -334,6 +334,29 @@ class RNG {
     }
 }
 
+
+class SpawnerUI {
+    constructor() {
+        this.btn = document.getElementById('hexagon-btn');
+        this.overlay = document.getElementById('spawner-overlay');
+
+        if (this.btn && this.overlay) {
+            this.btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggle();
+            });
+        }
+    }
+
+    toggle() {
+        if (this.overlay.classList.contains('hidden')) {
+            this.overlay.classList.remove('hidden');
+        } else {
+            this.overlay.classList.add('hidden');
+        }
+    }
+}
+
 class Game {
     constructor() {
         // Load saved state
@@ -350,6 +373,7 @@ class Game {
         this.rng = new RNG(this.state, (idx, e) => this.onRngShapeDown(idx, e));
 
         this.counter = new ShapeCounter(this.state);
+        this.spawnerUI = new SpawnerUI();
 
 
         // Rehydrate Shapes
