@@ -147,12 +147,9 @@ p {
     border-color: rgba(46, 213, 115, 0.5);
 }
 
-.shape.spawner .shape-inner {
-    /* Create a black border effect for both circles and clipped polygons */
-    filter: drop-shadow(1px 0 0 black) drop-shadow(-1px 0 0 black) drop-shadow(0 1px 0 black) drop-shadow(0 -1px 0 black);
-    /* Ensure border is visible for circles if filter doesn't catch regular border */
-    border-color: black;
-    border-width: 2px;
+.shape.spawner {
+    /* Apply filter to the container to avoid clipping by clip-path on inner */
+    filter: drop-shadow(2px 0 0 black) drop-shadow(-2px 0 0 black) drop-shadow(0 2px 0 black) drop-shadow(0 -2px 0 black) drop-shadow(0 0 2px rgba(0, 0, 0, 0.5));
 }
 
 /* Merge Animation */

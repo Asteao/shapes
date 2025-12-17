@@ -435,7 +435,10 @@ class Game {
 
         for (let i = 0; i < loopCount; i++) {
             if (this.state.shapes.length >= MAX_SHAPES) break;
-            this.spawnShape();
+            const spawnSlot = this.rng.roll();
+            if (spawnSlot) {
+                this.spawnShape(undefined, undefined, spawnSlot.color, spawnSlot.sides);
+            }
         }
 
         this.state.lastActiveTime = now;
