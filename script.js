@@ -14,6 +14,7 @@ class GameState {
         this.stats = {};  // existing stats structure
         this.lastActiveTime = null;
         this.rngSlots = this.getDefaultSlots();
+        this.hexSlot = null;
     }
 
     getDefaultSlots() {
@@ -38,6 +39,7 @@ class GameState {
         this.stats = {};
         this.lastActiveTime = null;
         this.rngSlots = this.getDefaultSlots();
+        this.hexSlot = null;
     }
 
     toJSON() {
@@ -46,7 +48,8 @@ class GameState {
             shapes: this.shapes,
             stats: this.stats,
             lastActiveTime: this.lastActiveTime,
-            rngSlots: this.rngSlots
+            rngSlots: this.rngSlots,
+            hexSlot: this.hexSlot
         };
     }
 
@@ -57,6 +60,7 @@ class GameState {
         state.stats = data.stats ?? {};
         state.lastActiveTime = data.lastActiveTime ?? null;
         state.rngSlots = data.rngSlots ?? state.getDefaultSlots();
+        state.hexSlot = data.hexSlot ?? null;
         return state;
     }
 }
@@ -336,7 +340,9 @@ class RNG {
 
 
 class SpawnerUI {
-    constructor() {
+    constructor(state, onShapeDown) {
+        this.state = state;
+        this.onShapeDown = onShapeDown;
         this.btn = document.getElementById('hexagon-btn');
         this.overlay = document.getElementById('spawner-overlay');
 
@@ -346,14 +352,95 @@ class SpawnerUI {
                 this.toggle();
             });
         }
+        this.render();
     }
 
     toggle() {
         if (this.overlay.classList.contains('hidden')) {
+            this.render();
             this.overlay.classList.remove('hidden');
         } else {
             this.overlay.classList.add('hidden');
         }
+    }
+
+    checkDrop(x, y) {
+        if (!this.overlay || this.overlay.classList.contains('hidden')) return false;
+
+        const slot = this.overlay.querySelector('.shadow-slot') || this.overlay.querySelector('.preview-shape');
+        if (!slot) return false;
+
+        const rect = slot.getBoundingClientRect();
+        return (x >= rect.left && x <= rect.right &&
+            y >= rect.top && y <= rect.bottom);
+    }
+
+    render() {
+        if (!this.overlay) return;
+        this.overlay.innerHTML = '';
+
+        if (!this.state.hexSlot) {
+            // Empty
+            const slot = document.createElement('div');
+            slot.classList.add('shadow-slot');
+            this.overlay.appendChild(slot);
+        } else {
+            // Filled
+            const slotData = this.state.hexSlot;
+            const shapeDiv = document.createElement('div');
+            shapeDiv.classList.add('preview-shape', slotData.color);
+
+            if (slotData.attributes && slotData.attributes.includes('spawner')) {
+                shapeDiv.classList.add('spawner');
+            }
+
+            shapeDiv.addEventListener('pointerdown', (e) => {
+                e.stopPropagation();
+                if (this.onShapeDown) this.onShapeDown(e);
+            });
+
+            const inner = document.createElement('div');
+            inner.classList.add('shape-inner');
+            if (slotData.sides === 2) {
+                inner.style.borderRadius = '50%';
+            } else {
+                inner.style.clipPath = Shape.getPolygonClipPath(slotData.sides);
+            }
+
+            shapeDiv.appendChild(inner);
+            this.overlay.appendChild(shapeDiv);
+        }
+    }
+
+    animateConversion() {
+        const shapeDiv = this.overlay.querySelector('.preview-shape');
+        if (!shapeDiv) return;
+
+        // Step 1: Morph to Circle
+        // We force a reflow if needed, but usually just adding class works.
+        // We act on the container to cascade to inner, or define css on container class
+        // style.css -> .morph-to-circle .shape-inner { ... }
+        setTimeout(() => {
+            shapeDiv.classList.add('morph-to-circle');
+        }, 50); // Small delay to ensure render painted
+
+        // Step 2: Grow Border (after morph, morph takes 500ms)
+        setTimeout(() => {
+            shapeDiv.classList.add('spawner');
+        }, 600);
+
+        // Step 3: Finalize State (after border growth, 500ms more)
+        setTimeout(() => {
+            if (this.state.hexSlot) {
+                this.state.hexSlot.sides = 2; // Becomes Circle
+                if (!this.state.hexSlot.attributes) this.state.hexSlot.attributes = [];
+                if (!this.state.hexSlot.attributes.includes('spawner')) {
+                    this.state.hexSlot.attributes.push('spawner');
+                }
+                StorageService.save(this.state.toJSON());
+                this.render(); // Re-render to ensure state consistency
+            }
+        }, 1200);
     }
 }
 
@@ -373,7 +460,7 @@ class Game {
         this.rng = new RNG(this.state, (idx, e) => this.onRngShapeDown(idx, e));
 
         this.counter = new ShapeCounter(this.state);
-        this.spawnerUI = new SpawnerUI();
+        this.spawnerUI = new SpawnerUI(this.state, (e) => this.onSpawnerShapeDown(e));
 
 
         // Rehydrate Shapes
@@ -519,6 +606,35 @@ class Game {
         }
     }
 
+    onSpawnerShapeDown(e) {
+        const slot = this.state.hexSlot;
+        if (!slot) return;
+
+        // Consume Slot
+        this.state.hexSlot = null;
+        this.spawnerUI.render();
+        StorageService.save(this.state.toJSON());
+
+        // Spawn Shape at Cursor
+        const x = e.clientX - 40;
+        const y = e.clientY - 40;
+        const shape = this.spawnShape(x, y, slot.color, slot.sides, slot.attributes);
+
+        // Initiate Drag
+        this.draggedShape = shape;
+        this.dragPointerId = e.pointerId;
+        this.dragOffset = { x: 40, y: 40 };
+
+        shape.element.style.transition = 'none';
+        shape.element.style.zIndex = '3000';
+
+        try {
+            shape.element.setPointerCapture(e.pointerId);
+        } catch (err) {
+            console.warn('Failed to capture pointer', err);
+        }
+    }
+
     onPointerDown(e) {
         // Ignore if already dragging
         if (this.draggedShape) return;
@@ -583,6 +699,33 @@ class Game {
             this.rng.render();
 
             // Destroy Shape (Sacrifice)
+            this.draggedShape.destroy();
+            this.runtimeShapes.delete(this.draggedShape.id);
+            const idx = this.state.shapes.findIndex(s => s.id === this.draggedShape.id);
+            if (idx > -1) this.state.shapes.splice(idx, 1);
+
+            StorageService.save(this.state.toJSON());
+            this.counter.updateDisplay(this.state.shapes.length);
+
+            this.draggedShape = null;
+            this.dragPointerId = null;
+            return;
+        }
+
+        // Check Drop on Spawner Slot
+        if (this.spawnerUI.checkDrop(e.clientX, e.clientY) && this.draggedShape.sides === 6) {
+            // Update Slot with initial Hex Data
+            this.state.hexSlot = {
+                color: this.draggedShape.color,
+                sides: this.draggedShape.sides,
+                attributes: this.draggedShape.attributes
+            };
+            this.spawnerUI.render();
+
+            // Trigger Animation Sequence
+            this.spawnerUI.animateConversion();
+
+            // Destroy Shape
             this.draggedShape.destroy();
             this.runtimeShapes.delete(this.draggedShape.id);
             const idx = this.state.shapes.findIndex(s => s.id === this.draggedShape.id);
